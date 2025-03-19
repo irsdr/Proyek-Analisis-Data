@@ -48,3 +48,9 @@ Dataset yang digunakan berasal dari dua file:
 4. **Jalankan aplikasi:**
    ```bash
     streamlit run <nama_file_script_anda>.py
+
+## Deployment
+
+Anda dapat mengakses proyek pada link berikut
+
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://irsyad-bikesharing.streamlit.app)
