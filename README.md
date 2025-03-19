@@ -33,8 +33,8 @@ Dataset yang digunakan berasal dari dua file:
 
 1. **Clone repositori:**
    ```bash
-   git clone <link-repo-anda>
-   cd <nama-folder>
+   git https://github.com/irsdr/Proyek-Analisis-Data.git
+   cd Proyek-Analisis-Data
 
 2. **Buat virtual environment**
      ```bash
@@ -47,7 +47,7 @@ Dataset yang digunakan berasal dari dua file:
 
 4. **Jalankan aplikasi:**
    ```bash
-    streamlit run <nama_file_script_anda>.py
+    streamlit run .\dashboard\dashboard.py
 
 ## Deployment
 
