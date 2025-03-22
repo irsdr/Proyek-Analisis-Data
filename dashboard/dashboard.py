@@ -3,128 +3,150 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-# Fungsi untuk memuat data
+# Konfigurasi halaman
+st.set_page_config(page_title="Dashboard Rental Sepeda", layout="wide")
+
+# Load dataset
+# @st.cache_data
 def load_data():
-    day_df = pd.read_csv(r'./data/day.csv', parse_dates=['dteday'])
-    hour_df = pd.read_csv(r'./data/hour.csv', parse_dates=['dteday'])
-    combined_df = pd.merge(day_df, hour_df, on='dteday', suffixes=('_day', '_hour'))
-    return day_df, hour_df, combined_df
+    day_df = pd.read_csv('./data/day.csv')
+    hour_df = pd.read_csv('./data/hour.csv')
 
-day_df, hour_df, combined_df = load_data()
+    # Konversi format datetime
+    day_df["dteday"] = pd.to_datetime(day_df["dteday"])
+    hour_df["dteday"] = pd.to_datetime(hour_df["dteday"])
 
-# Konfigurasi Dashboard
-st.set_page_config(page_title="Dashboard Penggunaan Sepeda", layout="wide")
-st.title("Dashboard Penggunaan Sepeda")
+    # Mengubah kategori
+    nama_musim = {1: 'Musim Semi', 2: 'Musim Panas', 3: 'Musim Gugur', 4: 'Musim Dingin'}
+    day_df["season"].replace(nama_musim, inplace=True)
+    hour_df["season"].replace(nama_musim, inplace=True)
 
-# Membuat sidebar
-with st.sidebar:
-    st.title("🚲 Proyek Analisis Data")
-    st.subheader("Bike Sharing Dataset")
-    st.write("**Nama:** Muh. Irsyad Asrori")
-    st.write("**Email:** sastrojendro1119@gmail.com")
-    st.write("**ID Dicoding:** sastrojendro1119")
+    nama_bulan = {1: 'Jan', 2: 'Feb', 3: 'Mar', 4: 'Apr', 5: 'Mei', 6: 'Jun', 7: 'Jul', 8: 'Agu', 9: 'Sep', 10: 'Okt', 11: 'Nov', 12: 'Des'}
+    day_df["mnth"].replace(nama_bulan, inplace=True)
+    hour_df["mnth"].replace(nama_bulan, inplace=True)
 
-# Legend untuk Kategori Cuaca
-legend_labels = {
-    1: "1: Cerah, Sedikit Awan",
-    2: "2: Kabut + Berawan",
-    3: "3: Salju Ringan/Hujan Ringan + Mendung",
-    4: "4: Hujan Deras + Badai + Kabut"
-}
+    kondisi_cuaca = {1: 'Cerah', 2: 'Berkabut', 3: 'Hujan/Salju Ringan', 4: 'Hujan/Salju Lebat'}
+    day_df["weathersit"].replace(kondisi_cuaca, inplace=True)
+    hour_df["weathersit"].replace(kondisi_cuaca, inplace=True)
 
-handles = [
-    plt.Line2D([], [], marker='o', linestyle='',
-               markerfacecolor='gray', markersize=8,
-               label=legend_labels[k])
-    for k in sorted(legend_labels.keys())
-]
+    nama_hari = {0: 'Minggu', 1: 'Senin', 2: 'Selasa', 3: 'Rabu', 4: 'Kamis', 5: 'Jumat', 6: 'Sabtu'}
+    day_df["weekday"].replace(nama_hari, inplace=True)
+    hour_df["weekday"].replace(nama_hari, inplace=True)
 
-# 1. Pengaruh Cuaca (Harian)
-st.header("1. Pengaruh Cuaca terhadap Penggunaan Sepeda")
+    day_df["yr"].replace({0: "2011", 1: "2012"}, inplace=True)
+    hour_df["yr"].replace({0: "2011", 1: "2012"}, inplace=True)
+
+    return day_df, hour_df
+
+day_df, hour_df = load_data()
+
+# Sidebar - Filter Data
+st.sidebar.header("Filter Data")
+selected_year = st.sidebar.selectbox("Pilih Tahun", options=["2011", "2012"])
+selected_season = st.sidebar.multiselect("Pilih Musim", options=["Musim Semi", "Musim Panas", "Musim Gugur", "Musim Dingin"],
+                                         default=["Musim Semi", "Musim Panas", "Musim Gugur", "Musim Dingin"])
+
+# Filter dataset
+filtered_data = day_df[(day_df["yr"] == selected_year) & (day_df["season"].isin(selected_season))]
+
+# Dashboard Utama
+st.title("📊 Dashboard Rental Sepeda")
+
+# Ringkasan Data
+col1, col2, col3 = st.columns(3)
+col1.metric("Total Penyewaan", filtered_data["cnt"].sum())
+col2.metric("Rata-rata Harian", round(filtered_data["cnt"].mean(), 2))
+col3.metric("Hari dengan Penyewaan Tertinggi", filtered_data["cnt"].max())
+
+# Tren Penyewaan Sepeda per Bulan
+st.subheader("📈 Tren Penyewaan Sepeda per Bulan")
+monthly_df = filtered_data.groupby("mnth")["cnt"].mean().reset_index()
+
+fig, ax = plt.subplots(figsize=(10,5))
+sns.lineplot(x="mnth", y="cnt", data=monthly_df, marker="o", ax=ax)
+ax.set_xlabel("Bulan")
+ax.set_ylabel("Rata-rata Penyewaan")
+ax.set_title(f"Tren Penyewaan Sepeda ({selected_year})")
+ax.grid(True, linestyle="-", alpha=0.6)
+st.pyplot(fig)
+
+# Rata-rata Penggunaan Sepeda per Jam
+st.subheader("⏰ Rata-rata Penyewaan Sepeda per Jam")
+hourly_avg = hour_df.groupby("hr")[["casual", "registered", "cnt"]].mean()
+
+fig, ax = plt.subplots(figsize=(12,6))
+sns.lineplot(x=hourly_avg.index, y=hourly_avg["casual"], label="Casual", marker="o", ax=ax)
+sns.lineplot(x=hourly_avg.index, y=hourly_avg["registered"], label="Registered", marker="s", ax=ax)
+sns.lineplot(x=hourly_avg.index, y=hourly_avg["cnt"], label="Total", marker="d", linestyle="--", ax=ax)
+ax.set_xlabel("Jam")
+ax.set_ylabel("Jumlah Penyewaan")
+ax.set_title("Rata-rata Penyewaan Sepeda per Jam")
+ax.grid(True, linestyle="-", alpha=0.6)
+st.pyplot(fig)
 
 col1, col2 = st.columns(2)
 
 with col1:
-    st.subheader("a. Data Harian")
-    fig_day, ax_day = plt.subplots(figsize=(10, 6))
-    sns.boxplot(x='weathersit_day', y='cnt_day', data=combined_df, ax=ax_day)
-    ax_day.set_title('Pengaruh Cuaca terhadap Penggunaan Sepeda (Harian)')
-    ax_day.set_xlabel('Kondisi Cuaca')
-    ax_day.set_ylabel('Jumlah Penyewa Sepeda')
-    ax_day.legend(handles=handles, title="Deskripsi Kondisi Cuaca",
-                  loc="upper left", bbox_to_anchor=(1, 1))
-    plt.tight_layout()
-    st.pyplot(fig_day)
+    # Pengaruh Musim terhadap Penyewaan
+    st.subheader("🌦️ Pengaruh Musim terhadap Penyewaan Sepeda")
+    season_avg = filtered_data.groupby("season")["cnt"].mean().reset_index()
 
+    fig, ax = plt.subplots(figsize=(8,5))
+    sns.barplot(x="season", y="cnt", data=season_avg, palette="coolwarm", ax=ax)
+    ax.set_xlabel("Musim")
+    ax.set_ylabel("Rata-rata Penyewaan Sepeda")
+    ax.set_title(f"Rata-rata Penyewaan Sepeda Berdasarkan Musim ({selected_year})")
+    ax.set_axisbelow(True)
+    ax.grid(True, linestyle="-", alpha=0.6)
+    st.pyplot(fig)
 
-# 2. Pengaruh Cuaca (Per Jam)
 with col2:
-    st.subheader("b. Data Per Jam")
-    fig_hour, ax_hour = plt.subplots(figsize=(10, 6))
-    sns.boxplot(x='weathersit_hour', y='cnt_hour', data=combined_df, ax=ax_hour)
-    ax_hour.set_title('Pengaruh Cuaca terhadap Penggunaan Sepeda (Per Jam)')
-    ax_hour.set_xlabel('Kondisi Cuaca')
-    ax_hour.set_ylabel('Jumlah Penyewa Sepeda')
-    ax_hour.legend(handles=handles, title="Deskripsi Kondisi Cuaca",
-                   loc="upper left", bbox_to_anchor=(1, 1))
-    plt.tight_layout()
-    st.pyplot(fig_hour)
+    # Pengaruh Cuaca terhadap Penyewaan
+    st.subheader("🌤️ Pengaruh Cuaca terhadap Penyewaan Sepeda")
 
-# 3. Korelasi antara Variabel
-st.header("2. Analisis Korelasi")
-correlation_matrix = combined_df[['weathersit_day', 'cnt_day', 'weathersit_hour', 'cnt_hour']].corr()
-st.write("**Matriks Korelasi:**")
-st.dataframe(correlation_matrix)
+    filtered_weather_data = filtered_data.groupby("weathersit")["cnt"].mean().reset_index()
 
-fig_heatmap, ax_heatmap = plt.subplots(figsize=(8, 6))
-sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', ax=ax_heatmap)
-ax_heatmap.set_title('Korelasi antara Cuaca dan Penggunaan Sepeda')
-plt.tight_layout()
-st.pyplot(fig_heatmap)
+    fig, ax = plt.subplots(figsize=(8,5))
+    sns.barplot(x="weathersit", y="cnt", data=filtered_weather_data, palette="coolwarm", ax=ax)
+    ax.set_xlabel("Kondisi Cuaca")
+    ax.set_ylabel("Rata-rata Penyewaan Sepeda")
+    ax.set_title(f"Rata-rata Penyewaan Sepeda Berdasarkan Cuaca ({selected_year})")
+    ax.set_axisbelow(True)
+    ax.grid(True, linestyle="-", alpha=0.6)
+    st.pyplot(fig)
 
-st.header("3. Tren dan Pola Penggunaan Sepeda")
-col1, col2 = st.columns(2)
+# Perbandingan Pengguna Casual vs Registered
+st.subheader("👥 Perbandingan Pengguna Casual vs Registered")
+user_data = filtered_data[["casual", "registered"]].sum()
 
-# 4. Tren Bulanan
-with col1:
-    st.subheader("a. Tren Bulanan Jumlah Penyewa Sepeda")
-    monthly_trend = combined_df.groupby(combined_df['dteday'].dt.to_period('M'))['cnt_day'].sum()
-    fig_monthly, ax_monthly = plt.subplots(figsize=(10, 6))
-    ax_monthly.plot(monthly_trend.index.to_timestamp(), monthly_trend.values, marker='o')
-    ax_monthly.set_xlabel('Bulan')
-    ax_monthly.set_ylabel('Jumlah Penyewa Sepeda')
-    ax_monthly.set_title('Tren Bulanan Jumlah Penyewa Sepeda')
-    ax_monthly.grid(True)
-    plt.tight_layout()
-    st.pyplot(fig_monthly)
+fig, ax = plt.subplots(figsize=(6,6))
+ax.pie(user_data, labels=["Casual", "Registered"], autopct="%1.1f%%", colors=["#7982B9", "#B3D1EF"], startangle=140, explode=(0.1, 0))
+ax.set_title(f"Perbandingan Total Pengguna ({selected_season}) ({selected_year})")
+st.pyplot(fig)
 
-# 5. Tren Musiman
-with col2:
-    st.subheader("b. Tren Musiman Jumlah Penyewa Sepeda")
-    seasonal_trend = combined_df.groupby('season_day')['cnt_day'].mean()
-    fig_season, ax_season = plt.subplots(figsize=(10, 6))
-    ax_season.bar(seasonal_trend.index, seasonal_trend.values, color='skyblue')
-    ax_season.set_xlabel('Musim')
-    ax_season.set_ylabel('Rata-rata Jumlah Penyewa Sepeda')
-    ax_season.set_title('Tren Musiman Rata-Rata Jumlah Penyewa Sepeda')
-    ax_season.set_xticks(seasonal_trend.index)
-    ax_season.set_xticklabels(['Musim Semi', 'Musim Panas', 'Musim Gugur', 'Musim Digin'])
-    ax_season.grid(axis='y')
-    plt.tight_layout()
-    st.pyplot(fig_season)
+# Clustering Berdasarkan Jam Penyewaan
+st.subheader("⏳ Clustering Berdasarkan Jam Penyewaan")
+def categorize_hour(hr):
+    if 0 <= hr < 6:
+        return "Dini Hari"
+    elif 6 <= hr < 12:
+        return "Pagi"
+    elif 12 <= hr < 18:
+        return "Siang"
+    else:
+        return "Malam"
 
-# 6. Dampak Hari Libur
-st.header("4. Pengaruh Hari Libur")
-holiday_impact = combined_df.groupby('holiday_day')['cnt_day'].mean()
-fig_holiday, ax_holiday = plt.subplots(figsize=(8, 6))
-ax_holiday.bar([0, 1], holiday_impact.values, color='lightgreen')
-ax_holiday.set_ylabel('Rata-rata Jumlah Penyewa Sepeda')
-ax_holiday.set_title('Pengaruh Hari Libur terhadap Penggunaan Sepeda')
-ax_holiday.set_xticks([0, 1])
-ax_holiday.set_xticklabels(['Hari Kerja', 'Hari Libur'])
-ax_holiday.grid(True)
-plt.tight_layout()
-st.pyplot(fig_holiday)
+hour_df["time_category"] = hour_df["hr"].apply(categorize_hour)
+time_segmentation = hour_df.groupby("time_category")["cnt"].mean().reset_index()
+
+fig, ax = plt.subplots(figsize=(8,5))
+sns.barplot(x="time_category", y="cnt", data=time_segmentation, palette="coolwarm", ax=ax)
+ax.set_xlabel("Kategori Waktu")
+ax.set_ylabel("Rata-rata Penyewaan Sepeda")
+ax.set_title("Clustering Berdasarkan Jam Penyewaan")
+ax.set_axisbelow(True)
+ax.grid(True, linestyle="-", alpha=0.6)
+st.pyplot(fig)
 
 st.markdown(
     """
