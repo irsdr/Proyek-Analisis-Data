@@ -7,7 +7,6 @@ import matplotlib.pyplot as plt
 st.set_page_config(page_title="Dashboard Rental Sepeda", layout="wide")
 
 # Load dataset
-# @st.cache_data
 def load_data():
     day_df = pd.read_csv('./data/day.csv')
     hour_df = pd.read_csv('./data/hour.csv')
@@ -42,13 +41,25 @@ day_df, hour_df = load_data()
 
 # Sidebar - Filter Data
 st.sidebar.header("Filter Data")
-selected_year = st.sidebar.selectbox("Pilih Tahun", options=["2011", "2012"])
-selected_season = st.sidebar.multiselect("Pilih Musim", options=["Musim Semi", "Musim Panas", "Musim Gugur", "Musim Dingin"],
-                                         default=["Musim Semi", "Musim Panas", "Musim Gugur", "Musim Dingin"])
 
-# Filter dataset
-filtered_data = day_df[(day_df["yr"] == selected_year) & (day_df["season"].isin(selected_season))]
+# Menambahkan opsi "Semua Tahun" dalam selectbox
+year_options = ["Semua Tahun", "2011", "2012"]
+selected_year = st.sidebar.selectbox("Pilih Tahun", options=year_options)
 
+# Multi-select untuk memilih lebih dari satu musim
+season_options = ["Musim Semi", "Musim Panas", "Musim Gugur", "Musim Dingin"]
+selected_seasons = st.sidebar.multiselect("Pilih Musim", options=season_options, default=season_options)
+
+# Filter dataset berdasarkan tahun
+if selected_year == "Semua Tahun":
+    filtered_data = day_df  # Tidak ada filter tahun, ambil semua data
+else:
+    filtered_data = day_df[day_df["yr"] == selected_year]
+
+# Filter berdasarkan musim
+if selected_seasons:
+    filtered_data = filtered_data[filtered_data["season"].isin(selected_seasons)]
+    
 # Dashboard Utama
 st.title("📊 Dashboard Rental Sepeda")
 
@@ -121,7 +132,7 @@ user_data = filtered_data[["casual", "registered"]].sum()
 
 fig, ax = plt.subplots(figsize=(6,6))
 ax.pie(user_data, labels=["Casual", "Registered"], autopct="%1.1f%%", colors=["#7982B9", "#B3D1EF"], startangle=140, explode=(0.1, 0))
-ax.set_title(f"Perbandingan Total Pengguna ({selected_season}) ({selected_year})")
+ax.set_title(f"Perbandingan Total Pengguna ({selected_seasons}) ({selected_year})")
 st.pyplot(fig)
 
 # Clustering Berdasarkan Jam Penyewaan
